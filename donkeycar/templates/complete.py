@@ -971,6 +971,39 @@ def add_drivetrain(V, cfg):
             V.add(steering, inputs=['angle'], threaded=True)
             V.add(motor, inputs=["throttle"])
 
+        if cfg.DRIVE_TRAIN_TYPE == "PWM_STEERING_TB6612_THROTTLE":
+            #
+            # drivetrain for RC car with servo and ESC.
+            # using a PwmPin for steering (servo)
+            # and as second PwmPin for throttle (ESC)
+            #
+            from donkeycar.parts.actuator import PWMSteering, L298N_HBridge_3pin, PulseController
+
+            dt = cfg.PWM_STEERING_TB6612_THROTTLE
+            steering_controller = PulseController(
+                pwm_pin=pins.pwm_pin_by_id(dt["PWM_STEERING_PIN"]),
+                pwm_scale=dt["PWM_STEERING_SCALE"],
+                pwm_inverted=dt["PWM_STEERING_INVERTED"])
+            steering = PWMSteering(controller=steering_controller,
+                                            left_pulse=dt["STEERING_LEFT_PWM"],
+                                            right_pulse=dt["STEERING_RIGHT_PWM"])
+
+            motor_l = actuator.L298N_HBridge_3pin(
+                pins.output_pin_by_id(dt['HBRIDGE_MA_FWD_PIN']),
+                pins.output_pin_by_id(dt['HBRIDGE_MA_BWD_PIN']),
+                pins.pwm_pin_by_id(dt['HBRIDGE_MA_PWM']))
+
+            motor_r = actuator.L298N_HBridge_3pin(
+                pins.output_pin_by_id(dt['HBRIDGE_MB_FWD_PIN']),
+                pins.output_pin_by_id(dt['HBRIDGE_MB_BWD_PIN']),
+                pins.pwm_pin_by_id(dt['HBRIDGE_MB_PWM']))
+
+
+            V.add(steering, inputs=['angle'], threaded=True)
+            V.add(motor_l, inputs=['throttle'])
+            V.add(motor_r, inputs=['throttle'])
+
+
         elif cfg.DRIVE_TRAIN_TYPE == "SERVO_HBRIDGE_PWM":
             #
             # This driver is DEPRECATED in favor of 'DRIVE_TRAIN_TYPE == "SERVO_HBRIDGE_2PIN"'

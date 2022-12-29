@@ -337,6 +337,29 @@ DC_TWO_WHEEL_L298N = {
     "RIGHT_EN_DUTY_PIN": "RPI_GPIO.BOARD.11",   # PWM pin generates duty cycle for right wheel speed
 }
 
+#
+# PWM_STEERING_TB6612_THROTTLE pin configuration
+# #TODO description here
+
+PWM_STEERING_TB6612_THROTTLE = {
+     "PWM_STEERING_PIN": "PCA9685.1:40.1",   # PWM output pin for steering servo
+     "PWM_STEERING_SCALE": 1.0,              # used to compensate for PWM frequency differents from 60hz; NOT for adjusting steering range
+     "PWM_STEERING_INVERTED": False,         # True if hardware requires an inverted PWM pulse
+     "STEERING_LEFT_PWM": 240,               #pwm value for full left steering
+     "STEERING_RIGHT_PWM": 480,              #pwm value for full right steering
+
+     "HBRIDGE_MA_FWD_PIN": "RPI_GPIO.BCM.16",  # output pin enables left wheel forward
+     "HBRIDGE_MA_BWD_PIN": "RPI_GPIO.BCM.17",  # output pin enables left wheel forward
+     "HBRIDGE_MB_FWD_PIN": "RPI_GPIO.BCM.16",  # output pin enables right wheel forward
+     "HBRIDGE_MB_BWD_PIN": "RPI_GPIO.BCM.27",  # output pin enables left wheel forward
+     "HBRIDGE_MA_PWM": "PCA9685.1:40.4",
+     "HBRIDGE_MB_PWM": "PCA9685.1:40.5"
+}
+
+
+
+
+
 #ODOMETRY
 HAVE_ODOM = False                   # Do you have an odometer/encoder 
 ENCODER_TYPE = 'GPIO'            # What kind of encoder? GPIO|Arduino|Astar 
