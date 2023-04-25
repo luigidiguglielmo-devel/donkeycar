@@ -3,13 +3,12 @@
 Scripts to drive a donkey car
 
 Usage:
-    manage.py (drive) [--model=<model>] [--js] [--type=(linear|categorical)] [--camera=(single|stereo)] [--meta=<key:value> ...] [--myconfig=<filename>]
+    manage.py (drive) [--model=<model>] [--js] [--type=(linear|categorical)] [--meta=<key:value> ...] [--myconfig=<filename>]
 
 Options:
     -h --help               Show this screen.
     --js                    Use physical joystick.
-    -f --file=<file>        A text file containing paths to tub files, one per line. Option may be used more than once.
-    --meta=<key:value>      Key/Value strings describing describing a piece of meta data about this drive. Option may be used more than once.
+    --meta=<key:value>      Key/Value strings describing a piece of meta data about this drive. Option may be used more than once.
     --myconfig=filename     Specify myconfig file to use. 
                             [default: myconfig.py]
 """
@@ -115,7 +114,7 @@ def drive(cfg, model_path=None, use_joystick=False, model_type=None, meta=[]):
     # - RC Controller and related topic -
     # -----------------------------------
     # input topic: []
-    # output topic: ['TBD']
+    # output topic: ['user/steering', 'user/throttle', 'user/mode', 'recoding' ]
     # threaded: True
     # run condition: N/A
     # ----------------------------
@@ -275,11 +274,6 @@ def drive(cfg, model_path=None, use_joystick=False, model_type=None, meta=[]):
     # -----------------------------------------
     if cfg.USE_FPV:
         V.add(WebFpv(port=9000), 
-                inputs =  ['cam/image_array'],
-                outputs = [], 
-                threaded = True,
-                run_condition = None)
-        V.add(WebFpv(port=9001), 
                 inputs =  ['cam/image_array'],
                 outputs = [], 
                 threaded = True,
