@@ -45,6 +45,7 @@ CAMERA_FRAMERATE = 24
 CAMERA_VFLIP = False
 CAMERA_HFLIP = False
 CAMERA_INDEX = 0  # used for 'WEBCAM' and 'CVCAM' when there is more than one camera connected 
+CAMERA_WARMING_SECS = 5 # used for 'CVCAM' - timeout for camera warm up 
 
 BGR2RGB = False  # true to convert from BRG format to RGB format; requires opencv
 
@@ -85,7 +86,7 @@ PIGPIO_STOPPED_PWM = 1500
 PIGPIO_MAX_REVERSE = 1000          # Max throttle to go reverse. The smaller the faster
 PIGPIO_SHOW_STEERING_VALUE = False
 PIGPIO_INVERT = False
-PIGPIO_JITTER = 0.025   # threshold below which no signal is reported
+PIGPIO_JITTER = 0.05   # threshold below which no signal is reported
 
 
 #9865, over rides only if needed, ie. TX2..

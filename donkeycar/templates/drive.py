@@ -82,8 +82,8 @@ def drive(cfg, model_path=None, use_joystick=False, model_type=None, meta=[]):
         cam = CvCam(image_w=cfg.IMAGE_W, 
             image_h=cfg.IMAGE_H,
             image_d=cfg.IMAGE_DEPTH,
-            iCam = cfg.CAM_INDEX,
-            warming_secs=cfg.CAM_WARMING_SECS)
+            iCam = cfg.CAMERA_INDEX,
+            warming_secs=cfg.CAMERA_WARMING_SECS)
         V.add(cam, 
               inputs = [], 
               outputs  =['cam/image_array'], 
@@ -150,7 +150,7 @@ def drive(cfg, model_path=None, use_joystick=False, model_type=None, meta=[]):
 
     elif (cfg.CONTROLLER_TYPE == "pigpio_rc"):
         from donkeycar.parts.controller import RCReceiver
-        ctr = RCReceiver(cfg)
+        ctr = RCReceiver(cfg, debug=False)
         V.add(ctr,
               inputs=['user/mode', 'recording'],
               outputs=['user/steering', 'user/throttle',
@@ -320,12 +320,16 @@ def drive(cfg, model_path=None, use_joystick=False, model_type=None, meta=[]):
     meta += getattr(cfg, 'METADATA', [])
 
     tub_writer = TubWriter(tub_path, inputs=tub_inputs, types=tub_types, metadata=meta)
-    V.add(tub_writer, inputs=tub_inputs, outputs=["tub/num_records"], run_condition='recording')
+    V.add(tub_writer, 
+          inputs=tub_inputs, 
+          outputs=["tub/num_records"],
+          threaded = False, 
+          run_condition='recording')
 
     # use the controller to discard data 
     # #TODO: TubWriter should be created upfront so parts interacting with it can get an handle
     # as soon as they are instantiated
-    if not(cfg.CONTROLLER_TYPE == 'WEB'):
+    if (cfg.CONTROLLER_TYPE == 'ps4'):
         ctr.set_tub(tub_writer.tub)
 
     # run the vehicle
