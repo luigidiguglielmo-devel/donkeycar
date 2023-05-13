@@ -12,7 +12,6 @@ print(cfg.CAMERA_RESOLUTION)
 
 """
 
-
 import os
 
 #PATHS
@@ -20,26 +19,74 @@ CAR_PATH = PACKAGE_PATH = os.path.dirname(os.path.realpath(__file__))
 DATA_PATH = os.path.join(CAR_PATH, 'data')
 MODELS_PATH = os.path.join(CAR_PATH, 'models')
 
-#VEHICLE
-DRIVE_LOOP_HZ = 20      # the vehicle loop will pause if faster than this speed.
+#LOGGING
+HAVE_CONSOLE_LOGGING = True
+LOGGING_LEVEL = 'INFO'          # (Python logging level) 'NOTSET' / 'DEBUG' / 'INFO' / 'WARNING' / 'ERROR' / 'FATAL' / 'CRITICAL'
+LOGGING_FORMAT = '%(message)s'  # (Python logging format - https://docs.python.org/3/library/logging.html#formatter-objects
+
+# -------------
+# -- VEHICLE --
+# -------------
+DRIVE_LOOP_HZ = 30      # the vehicle loop will pause if faster than this speed.
 MAX_LOOPS = None        # the vehicle loop can abort after this many iterations, when given a positive integer.
 
+#RECORD OPTIONS
+RECORD_DURING_AI = False            #normally we do not record during ai mode. Set this to true to get image and steering records for your Ai. Be careful not to use them to train.
+AUTO_RECORD_ON_THROTTLE = True      #if true, we will record whenever throttle is not zero. if false, you must manually toggle recording with some other trigger. Usually circle button on joystick.
+AUTO_CREATE_NEW_TUB = False         #create a new tub (tub_YY_MM_DD) directory when recording or append records to data directory directly
+
 #CAMERA
-CAMERA_TYPE = "PICAM"   # (PICAM|WEBCAM|CVCAM|CSIC|V4L|D435|MOCK|IMAGE_LIST)
+HAVE_CAMERA = False
+CAMERA_TYPE = "CVCAM"   # (PICAM|WEBCAM|CVCAM|CSIC|V4L|D435|MOCK|IMAGE_LIST)
 IMAGE_W = 160
 IMAGE_H = 120
 IMAGE_DEPTH = 3         # default RGB=3, make 1 for mono
-CAMERA_FRAMERATE = DRIVE_LOOP_HZ
+CAMERA_FRAMERATE = 24
 CAMERA_VFLIP = False
 CAMERA_HFLIP = False
 CAMERA_INDEX = 0  # used for 'WEBCAM' and 'CVCAM' when there is more than one camera connected 
-# For CSIC camera - If the camera is mounted in a rotated position, changing the below parameter will correct the output frame orientation
-CSIC_CAM_GSTREAMER_FLIP_PARM = 0 # (0 => none , 4 => Flip horizontally, 6 => Flip vertically)
+
 BGR2RGB = False  # true to convert from BRG format to RGB format; requires opencv
+
 SHOW_PILOT_IMAGE = False  # show the image used to do the inference when in autopilot mode
+USE_FPV = False           # send camera data to FPV webserver
 
 # For IMAGE_LIST camera
 # PATH_MASK = "~/mycar/data/tub_1_20-03-12/*.jpg"
+
+#IMU
+HAVE_IMU = False                #when true, this add a Mpu6050 part and records the data. Can be used with a
+IMU_SENSOR = 'mpu6050'          # (mpu6050|mpu9250)
+IMU_ADDRESS = 0x68              # if AD0 pin is pulled high them address is 0x69, otherwise it is 0x68
+IMU_DLP_CONFIG = 0              # Digital Lowpass Filter setting (0:250Hz, 1:184Hz, 2:92Hz, 3:41Hz, 4:20Hz, 5:10Hz, 6:5Hz)
+IMU_SAMPLERATE = 60             # sample rate (Hz) - frequency the imu value is read/updated
+
+#WEB CONTROL
+WEB_CONTROL_PORT = int(os.getenv("WEB_CONTROL_PORT", 8887))  # which port to listen on when making a web controller
+WEB_INIT_MODE = "user"              # which control mode to start in. one of user|local_angle|local. Setting local will start in ai mode.
+
+#JOYSTICK
+USE_JOYSTICK_AS_DEFAULT = False     #when starting the manage.py, when True, will not require a --js option to use the joystick
+JOYSTICK_MAX_THROTTLE = 0.5         #this scalar is multiplied with the -1 to 1 throttle value to limit the maximum throttle. This can help if you drop the controller or just don't need the full speed available.
+JOYSTICK_STEERING_SCALE = 1.0       #some people want a steering that is less sensitve. This scalar is multiplied with the steering -1 to 1. It can be negative to reverse dir.
+CONTROLLER_TYPE = 'web'             #(web|ps3|ps4|xbox|pigpio_rc|nimbus|wiiu|F710|rc3|MM1|custom) custom will run the my_joystick.py controller written by the `donkey createjs` command
+JOYSTICK_DEADZONE = 0.01            # when non zero, this is the smallest throttle before recording triggered.
+JOYSTICK_THROTTLE_DIR = -1.0        # use -1.0 to flip forward/backward, use 1.0 to use joystick's natural forward/backward
+JOYSTICK_DEVICE_FILE = "/dev/input/js0" # this is the unix file use to access the joystick.
+
+
+#PIGPIO RC control
+STEERING_RC_GPIO = 26
+THROTTLE_RC_GPIO = 20
+DATA_WIPER_RC_GPIO = 19
+PIGPIO_STEERING_MID = 1500         # Adjust this value if your car cannot run in a straight line
+PIGPIO_MAX_FORWARD = 2000          # Max throttle to go fowrward. The bigger the faster
+PIGPIO_STOPPED_PWM = 1500
+PIGPIO_MAX_REVERSE = 1000          # Max throttle to go reverse. The smaller the faster
+PIGPIO_SHOW_STEERING_VALUE = False
+PIGPIO_INVERT = False
+PIGPIO_JITTER = 0.025   # threshold below which no signal is reported
+
 
 #9865, over rides only if needed, ie. TX2..
 PCA9685_I2C_ADDR = 0x40     #I2C address, use i2cdetect to validate this number
@@ -78,8 +125,18 @@ PWM_STEERING_THROTTLE = {
     "THROTTLE_REVERSE_PWM": 220,            #pwm value for max reverse throttle
 }
 
+#When racing, to give the ai a boost, configure these values.
+AI_LAUNCH_DURATION = 0.0            # the ai will output throttle for this many seconds
+AI_LAUNCH_THROTTLE = 0.0            # the ai will output this throttle value
+AI_LAUNCH_ENABLE_BUTTON = 'R2'      # this keypress will enable this boost. It must be enabled before each use to prevent accidental trigger.
+AI_LAUNCH_KEEP_ENABLED = False      # when False ( default) you will need to hit the AI_LAUNCH_ENABLE_BUTTON for each use. This is safest. When this True, is active on each trip into "local" ai mode.
 
-#TRAINING
+#Scale the output of the throttle of the ai pilot for all model types.
+AI_THROTTLE_MULT = 1.0              # this multiplier will scale every throttle value for all output from NN models
+
+# --------------
+# -- TRAINING --
+# --------------
 # The default AI framework to use. Choose from (tensorflow|pytorch)
 DEFAULT_AI_FRAMEWORK = 'tensorflow'
 
@@ -89,7 +146,7 @@ DEFAULT_AI_FRAMEWORK = 'tensorflow'
 # python manage.py train and drive commands.
 # tensorflow models: (linear|categorical|tflite_linear|tensorrt_linear)
 # pytorch models: (resnet18)
-DEFAULT_MODEL_TYPE = 'linear'
+DEFAULT_MODEL_TYPE = 'imu'
 BATCH_SIZE = 128                #how many records to use when doing one pass of gradient decent. Use a smaller number if your gpu is running out of memory.
 TRAIN_TEST_SPLIT = 0.8          #what percent of records to use for training. the remaining used for validation.
 MAX_EPOCHS = 100                #how many times to visit all records of your data
@@ -275,23 +332,6 @@ SCALE_HEIGHT = None    # vertical scale factor or None to maintain aspect ratio
 FREEZE_LAYERS = False               #default False will allow all layers to be modified by training
 NUM_LAST_LAYERS_TO_TRAIN = 7        #when freezing layers, how many layers from the last should be allowed to train?
 
-#WEB CONTROL
-WEB_CONTROL_PORT = int(os.getenv("WEB_CONTROL_PORT", 8887))  # which port to listen on when making a web controller
-WEB_INIT_MODE = "user"              # which control mode to start in. one of user|local_angle|local. Setting local will start in ai mode.
-
-#JOYSTICK
-USE_JOYSTICK_AS_DEFAULT = False      #when starting the manage.py, when True, will not require a --js option to use the joystick
-JOYSTICK_MAX_THROTTLE = 0.5         #this scalar is multiplied with the -1 to 1 throttle value to limit the maximum throttle. This can help if you drop the controller or just don't need the full speed available.
-JOYSTICK_STEERING_SCALE = 1.0       #some people want a steering that is less sensitve. This scalar is multiplied with the steering -1 to 1. It can be negative to reverse dir.
-AUTO_RECORD_ON_THROTTLE = True      #if true, we will record whenever throttle is not zero. if false, you must manually toggle recording with some other trigger. Usually circle button on joystick.
-CONTROLLER_TYPE = 'ps4'            #(ps3|ps4|xbox|pigpio_rc|nimbus|wiiu|F710|rc3|MM1|custom) custom will run the my_joystick.py controller written by the `donkey createjs` command
-USE_NETWORKED_JS = False            #should we listen for remote joystick control over the network?
-NETWORK_JS_SERVER_IP = None         #when listening for network joystick control, which ip is serving this information
-JOYSTICK_DEADZONE = 0.01            # when non zero, this is the smallest throttle before recording triggered.
-JOYSTICK_THROTTLE_DIR = -1.0         # use -1.0 to flip forward/backward, use 1.0 to use joystick's natural forward/backward
-USE_FPV = False                     # send camera data to FPV webserver
-JOYSTICK_DEVICE_FILE = "/dev/input/js0" # this is the unix file use to access the joystick.
-
 #For the categorical model, this limits the upper bound of the learned throttle
 #it's very IMPORTANT that this value is matched from the training PC config.py and the robot.py
 #and ideally wouldn't change once set.
@@ -299,81 +339,3 @@ MODEL_CATEGORICAL_MAX_THROTTLE_RANGE = 0.8
 
 #RNN or 3D
 SEQUENCE_LENGTH = 3             #some models use a number of images over time. This controls how many.
-
-#IMU
-HAVE_IMU = False                #when true, this add a Mpu6050 part and records the data. Can be used with a
-IMU_SENSOR = 'mpu6050'          # (mpu6050|mpu9250)
-IMU_ADDRESS = 0x68              # if AD0 pin is pulled high them address is 0x69, otherwise it is 0x68
-IMU_DLP_CONFIG = 0              # Digital Lowpass Filter setting (0:250Hz, 1:184Hz, 2:92Hz, 3:41Hz, 4:20Hz, 5:10Hz, 6:5Hz)
-
-#PIGPIO RC control
-STEERING_RC_GPIO = 26
-THROTTLE_RC_GPIO = 20
-DATA_WIPER_RC_GPIO = 19
-PIGPIO_STEERING_MID = 1500         # Adjust this value if your car cannot run in a straight line
-PIGPIO_MAX_FORWARD = 2000          # Max throttle to go fowrward. The bigger the faster
-PIGPIO_STOPPED_PWM = 1500
-PIGPIO_MAX_REVERSE = 1000          # Max throttle to go reverse. The smaller the faster
-PIGPIO_SHOW_STEERING_VALUE = False
-PIGPIO_INVERT = False
-PIGPIO_JITTER = 0.025   # threshold below which no signal is reported
-
-
-#LOGGING
-HAVE_CONSOLE_LOGGING = True
-LOGGING_LEVEL = 'INFO'          # (Python logging level) 'NOTSET' / 'DEBUG' / 'INFO' / 'WARNING' / 'ERROR' / 'FATAL' / 'CRITICAL'
-LOGGING_FORMAT = '%(message)s'  # (Python logging format - https://docs.python.org/3/library/logging.html#formatter-objects
-
-#TELEMETRY
-HAVE_MQTT_TELEMETRY = False
-TELEMETRY_DONKEY_NAME = 'my_robot1234'
-TELEMETRY_MQTT_TOPIC_TEMPLATE = 'donkey/%s/telemetry'
-TELEMETRY_MQTT_JSON_ENABLE = False
-TELEMETRY_MQTT_BROKER_HOST = 'broker.hivemq.com'
-TELEMETRY_MQTT_BROKER_PORT = 1883
-TELEMETRY_PUBLISH_PERIOD = 1
-TELEMETRY_LOGGING_ENABLE = True
-TELEMETRY_LOGGING_LEVEL = 'INFO' # (Python logging level) 'NOTSET' / 'DEBUG' / 'INFO' / 'WARNING' / 'ERROR' / 'FATAL' / 'CRITICAL'
-TELEMETRY_LOGGING_FORMAT = '%(message)s'  # (Python logging format - https://docs.python.org/3/library/logging.html#formatter-objects
-TELEMETRY_DEFAULT_INPUTS = 'pilot/angle,pilot/throttle,recording'
-TELEMETRY_DEFAULT_TYPES = 'float,float'
-
-# PERF MONITOR
-HAVE_PERFMON = False
-
-#RECORD OPTIONS
-RECORD_DURING_AI = False        #normally we do not record during ai mode. Set this to true to get image and steering records for your Ai. Be careful not to use them to train.
-AUTO_CREATE_NEW_TUB = False     #create a new tub (tub_YY_MM_DD) directory when recording or append records to data directory directly
-
-#BEHAVIORS
-#When training the Behavioral Neural Network model, make a list of the behaviors,
-#Set the TRAIN_BEHAVIORS = True, and use the BEHAVIOR_LED_COLORS to give each behavior a color
-TRAIN_BEHAVIORS = False
-BEHAVIOR_LIST = ['Left_Lane', "Right_Lane"]
-BEHAVIOR_LED_COLORS = [(0, 10, 0), (10, 0, 0)]  #RGB tuples 0-100 per chanel
-
-#Localizer
-#The localizer is a neural network that can learn to predict its location on the track.
-#This is an experimental feature that needs more developement. But it can currently be used
-#to predict the segement of the course, where the course is divided into NUM_LOCATIONS segments.
-TRAIN_LOCALIZER = False
-NUM_LOCATIONS = 10
-BUTTON_PRESS_NEW_TUB = False #when enabled, makes it easier to divide our data into one tub per track length if we make a new tub on each X button press.
-
-#publish camera over network
-#This is used to create a tcp service to publish the camera feed
-PUB_CAMERA_IMAGES = False
-
-#When racing, to give the ai a boost, configure these values.
-AI_LAUNCH_DURATION = 0.0            # the ai will output throttle for this many seconds
-AI_LAUNCH_THROTTLE = 0.0            # the ai will output this throttle value
-AI_LAUNCH_ENABLE_BUTTON = 'R2'      # this keypress will enable this boost. It must be enabled before each use to prevent accidental trigger.
-AI_LAUNCH_KEEP_ENABLED = False      # when False ( default) you will need to hit the AI_LAUNCH_ENABLE_BUTTON for each use. This is safest. When this True, is active on each trip into "local" ai mode.
-
-#Scale the output of the throttle of the ai pilot for all model types.
-AI_THROTTLE_MULT = 1.0              # this multiplier will scale every throttle value for all output from NN models
-
-
-# FPS counter
-SHOW_FPS = False
-FPS_DEBUG_INTERVAL = 10    # the interval in seconds for printing the frequency info into the shell

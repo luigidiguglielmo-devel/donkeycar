@@ -74,16 +74,33 @@ def drive(cfg, model_path=None, use_joystick=False, model_type=None, meta=[]):
     # threaded: True
     # run condition: N/A
     # ----------------------------
-    from donkeycar.parts.camera import MockCamera
-    cam = MockCamera(image_w=cfg.IMAGE_W, image_h=cfg.IMAGE_H, image_d=cfg.IMAGE_DEPTH)
-    V.add(cam, 
-          inputs = [], 
-          outputs  =['cam/image_array'], 
-          threaded = True,
-          run_condition = None)
-    
-    tub_inputs += ['cam/image_array']
-    tub_types += ['image_array']
+    #from donkeycar.parts.camera import MockCamera
+    #cam = MockCamera(image_w=cfg.IMAGE_W, image_h=cfg.IMAGE_H, image_d=cfg.IMAGE_DEPTH)
+    if cfg.HAVE_CAMERA:
+        # ---------------
+        from donkeycar.parts.cv import CvCam
+        cam = CvCam(image_w=cfg.IMAGE_W, 
+            image_h=cfg.IMAGE_H,
+            image_d=cfg.IMAGE_DEPTH,
+            iCam = cfg.CAM_INDEX,
+            warming_secs=cfg.CAM_WARMING_SECS)
+        V.add(cam, 
+              inputs = [], 
+              outputs  =['cam/image_array'], 
+              threaded = True,
+              run_condition = None)
+        # ---------------
+        if cfg.BGR2RGB:
+            from donkeycar.parts.cv import ImgBGR2RGB
+            imgRGB = ImgBGR2RGB()
+            V.add(imgRGB, 
+                  inputs=["cam/image_array"],
+                  outputs=["cam/image_array"],
+                  threaded = False,
+                  run_condition = None)
+        # ---------------
+        tub_inputs += ['cam/image_array']
+        tub_types += ['image_array']
 
     # ----------------------------
     # - IMU and related topic -
@@ -97,12 +114,13 @@ def drive(cfg, model_path=None, use_joystick=False, model_type=None, meta=[]):
         from donkeycar.parts.imu import IMU
         imu = IMU(sensor=cfg.IMU_SENSOR, 
                 addr=cfg.IMU_ADDRESS,
+                poll_delay= 1/cfg.IMU_SAMPLERATE,
                 dlp_setting=cfg.IMU_DLP_CONFIG)
         V.add(imu,
             inputs = [], 
             outputs = ['imu/acl_x', 'imu/acl_y', 'imu/acl_z',
                        'imu/gyr_x', 'imu/gyr_y', 'imu/gyr_z'], 
-            threaded=True,
+            threaded = True,
             run_condition = None)
 
         tub_inputs += ['imu/acl_x', 'imu/acl_y', 'imu/acl_z',
@@ -118,7 +136,7 @@ def drive(cfg, model_path=None, use_joystick=False, model_type=None, meta=[]):
     # threaded: True
     # run condition: N/A
     # ----------------------------
-    if (cfg.CONTROLLER_TYPE == 'WEB'):
+    if (cfg.CONTROLLER_TYPE == 'web'):
         #
         # This web controller will create a web server that is capable
         # of managing steering, throttle, and modes, and more.
@@ -127,12 +145,20 @@ def drive(cfg, model_path=None, use_joystick=False, model_type=None, meta=[]):
         V.add(ctr,
             inputs=['cam/image_array', 'tub/num_records', 'user/mode', 'recording'],
             outputs=['user/steering', 'user/throttle', 'user/mode', 'recording', 'web/buttons'],
-            threaded=True)
+            threaded = True, 
+            run_condition = None)
 
-        tub_inputs +=['user/steering', 'user/throttle']
-        tub_types +=['float', 'float']
- 
-    else:
+    elif (cfg.CONTROLLER_TYPE == "pigpio_rc"):
+        from donkeycar.parts.controller import RCReceiver
+        ctr = RCReceiver(cfg)
+        V.add(ctr,
+              inputs=['user/mode', 'recording'],
+              outputs=['user/steering', 'user/throttle',
+                       'user/mode', 'recording'],
+              threaded = False,
+              run_condition = None)
+    
+    elif (cfg.CONTROLLER_TYPE == "ps4"):
         from donkeycar.parts.controller import PS4JoystickController
         ctr = PS4JoystickController(throttle_dir=cfg.JOYSTICK_THROTTLE_DIR,
                                 throttle_scale=cfg.JOYSTICK_MAX_THROTTLE,
@@ -147,10 +173,12 @@ def drive(cfg, model_path=None, use_joystick=False, model_type=None, meta=[]):
                          'user/mode', 'recording'],
               threaded = True,
               run_condition = None)
-
-        tub_inputs +=['user/streering', 'user/throttle']
-        tub_types +=['float', 'float']
-
+    else:
+        assert(False)
+    
+    tub_inputs +=['user/steering', 'user/throttle', 'user/mode']
+    tub_types +=['float', 'float', 'str']
+    
     # -------------------------------
     # converting sensor inputs into
     #       actuators commands
@@ -239,7 +267,9 @@ def drive(cfg, model_path=None, use_joystick=False, model_type=None, meta=[]):
     # 1. Steering
     # 2. Throttle
     # ------------------
-    if not(cfg.DRIVE_TRAIN_TYPE == "MOCK"):
+    if (cfg.DRIVE_TRAIN_TYPE == "MOCK"):
+        pass
+    elif (cfg.DRIVE_TRAIN_TYPE == "PWM_STEERING_THROTTLE"):
         from donkeycar.parts import pins
         #
         # drivetrain for RC car with servo and ESC.
@@ -268,6 +298,9 @@ def drive(cfg, model_path=None, use_joystick=False, model_type=None, meta=[]):
         
         V.add(steering, inputs=['steering'], threaded=True)
         V.add(throttle, inputs=['throttle'], threaded=True)
+
+    else:
+        assert(False)
     
     # -----------------------------------------
     # - Sinks -
