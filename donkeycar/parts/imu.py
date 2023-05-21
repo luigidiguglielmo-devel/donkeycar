@@ -76,14 +76,14 @@ class IMU:
             samples = 0
             for i in range(0, 200):
                 adata = self.sensor.get_accel_data()
-                self.abias[0] += adata[0]
-                self.abias[1] += adata[1]
-                self.abias[2] += adata[2]
+                self.abias[0] += adata['x']
+                self.abias[1] += adata['y']
+                self.abias[2] += adata['z']
 
                 gdata = self.sensor.get_gyro_data()
-                self.gbias[0] += gdata[0]
-                self.gbias[1] += gdata[1]
-                self.gbias[2] += gdata[2]
+                self.gbias[0] += gdata['x']
+                self.gbias[1] += gdata['y']
+                self.gbias[2] += gdata['z']
                 time.sleep(0.01)
                 samples += 1
             
@@ -95,7 +95,7 @@ class IMU:
             self.gbias[0] /= samples
             self.gbias[1] /= samples
             self.gbias[2] /= samples
-            print(' done')
+            print('Done!')
         else:
             self.sensor.calibrateMPU6500()
 
@@ -108,14 +108,14 @@ class IMU:
         try:
             if self.sensortype == SENSOR_MPU6050:
                 self.accel = self.sensor.get_accel_data()
-                self.accel[0] -= self.abias[0]
-                self.accel[1] -= self.abias[1]
-                self.accel[2] -= self.abias[2]
+                self.accel['x'] -= self.abias[0]
+                self.accel['y'] -= self.abias[1]
+                self.accel['z'] -= self.abias[2]
 
                 self.gyro = self.sensor.get_gyro_data()
-                self.gyro[0] -= self.gbias[0]
-                self.gyro[1] -= self.gbias[1]
-                self.gyro[2] -= self.gbias[2]
+                self.gyro['x'] -= self.gbias[0]
+                self.gyro['y'] -= self.gbias[1]
+                self.gyro['z'] -= self.gbias[2]
 
                 self.temp = self.sensor.get_temp()
 
@@ -151,7 +151,7 @@ if __name__ == "__main__":
         dlp_setting = int(sys.argv[2])
 
     p = IMU(sensor=sensor_type)
-    while iter < 100:
+    while iter < 200:
         data = p.run()
         print(data)
         time.sleep(0.1)
