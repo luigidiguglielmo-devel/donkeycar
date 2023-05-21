@@ -28,12 +28,18 @@ class IMU:
 
     def __init__(self, addr=0x68, poll_delay=0.0166, sensor=SENSOR_MPU6050, dlp_setting=DLP_SETTING_DISABLED):
         self.sensortype = sensor
+        self.abias = [0, 0, 0]
+        self.gbias = [0, 0, 0]
+
         if self.sensortype == SENSOR_MPU6050:
             from mpu6050 import mpu6050 as MPU6050
             self.sensor = MPU6050(addr)
+            self.sensor.set_accel_range(MPU6050.ACCEL_RANGE_4G)
+            self.sensor.set_gyro_range(MPU6050.GYRO_RANGE_1000DEG)
         
             if(dlp_setting > 0):
                 self.sensor.bus.write_byte_data(self.sensor.address, CONFIG_REGISTER, dlp_setting)
+            self.calibrate()
         
         else:
             from mpu9250_jmdev.registers import AK8963_ADDRESS, GFS_1000, AFS_4G, AK8963_BIT_16, AK8963_MODE_C100HZ
@@ -51,7 +57,7 @@ class IMU:
             
             if(dlp_setting > 0):
                 self.sensor.writeSlave(CONFIG_REGISTER, dlp_setting)
-            self.sensor.calibrateMPU6500()
+            self.calibrate()
             self.sensor.configure()
 
         
@@ -62,6 +68,37 @@ class IMU:
         self.poll_delay = poll_delay
         self.on = True
 
+    def calibrate(self):
+        if self.sensortype == SENSOR_MPU6050:
+            from mpu6050 import mpu6050 as MPU6050
+            # compute sensor biases
+            print('Calibrating IMU...')
+            samples = 0
+            for i in range(0, 200):
+                adata = self.sensor.get_accel_data()
+                self.abias[0] += adata['x']
+                self.abias[1] += adata['y']
+                self.abias[2] += adata['z']
+
+                gdata = self.sensor.get_gyro_data()
+                self.gbias[0] += gdata['x']
+                self.gbias[1] += gdata['y']
+                self.gbias[2] += gdata['z']
+                time.sleep(0.01)
+                samples += 1
+            
+            self.abias[0] /= samples
+            self.abias[1] /= samples
+            self.abias[2] /= samples
+            self.abias[2] -= MPU6050.GRAVITIY_MS2 
+
+            self.gbias[0] /= samples
+            self.gbias[1] /= samples
+            self.gbias[2] /= samples
+            print('Done!')
+        else:
+            self.sensor.calibrateMPU6500()
+
     def update(self):
         while self.on:
             self.poll()
@@ -70,7 +107,18 @@ class IMU:
     def poll(self):
         try:
             if self.sensortype == SENSOR_MPU6050:
-                self.accel, self.gyro, self.temp = self.sensor.get_all_data()
+                self.accel = self.sensor.get_accel_data()
+                self.accel['x'] -= self.abias[0]
+                self.accel['y'] -= self.abias[1]
+                self.accel['z'] -= self.abias[2]
+
+                self.gyro = self.sensor.get_gyro_data()
+                self.gyro['x'] -= self.gbias[0]
+                self.gyro['y'] -= self.gbias[1]
+                self.gyro['z'] -= self.gbias[2]
+
+                self.temp = self.sensor.get_temp()
+
             else:
                 from mpu9250_jmdev.registers import GRAVITY
                 ret = self.sensor.getAllData()
@@ -103,7 +151,7 @@ if __name__ == "__main__":
         dlp_setting = int(sys.argv[2])
 
     p = IMU(sensor=sensor_type)
-    while iter < 100:
+    while iter < 200:
         data = p.run()
         print(data)
         time.sleep(0.1)
