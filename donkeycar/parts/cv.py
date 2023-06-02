@@ -560,22 +560,27 @@ class CvImgFromFile(object):
             return self.image.copy()
         return self.image
 
+from threading import Lock
 
 class CvCam(object):
-    def __init__(self, image_w=160, image_h=120, image_d=3, iCam=0, warming_secs=5):
+    def __init__(self, image_w=160, image_h=120, image_d=3, cam_fps = 30, iCam=0, warming_secs=5):
         self.width = image_w
         self.height = image_h
         self.depth = image_d
+        self.fps = cam_fps
 
-        self.frame = None
+        self._frame = None
+        self._lock = Lock()
+
         self.cap = cv2.VideoCapture(iCam)
-
+        
         # warm up until we get a frame or we timeout
         if self.cap is not None:
             # self.cap.set(3, image_w)
             # self.cap.set(4, image_h)
             self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, image_w)
             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, image_h)
+            self.cap.set(cv2.CAP_PROP_FPS, self.fps)
             logger.info('CvCam opened...')
             warming_time = time.time() + warming_secs  # quick after 5 seconds
             while self.frame is None and time.time() < warming_time:
@@ -589,15 +594,26 @@ class CvCam(object):
             raise CameraError("Unable to open CvCam.")
 
         self.running = True
-        logger.info("CvCam ready.")
+        logger.info("CvCam ready. W x H: %d x %d , FPS:%d", self.cap.get(cv2.CAP_PROP_FRAME_WIDTH), self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT), self.cap.get(cv2.CAP_PROP_FPS) )
+
+    @property
+    def frame(self):
+        with self._lock:
+            frame = self._frame
+        return frame
 
     def poll(self):
         if self.cap.isOpened():
-            _, self.frame = self.cap.read()
-            if self.frame is not None:
-                width, height = self.frame.shape[:2]
+            _, frame = self.cap.read()
+            if frame is None:
+                with self._lock:
+                    self._frame = None
+            else:
+                width, height = frame.shape[:2]
                 if width != self.width or height != self.height:
-                    self.frame = cv2.resize(self.frame, (self.width, self.height))
+                    frame = cv2.resize(frame, (self.width, self.height))
+                with self._lock:
+                    self._frame = frame.copy()
 
     def update(self):
         '''
