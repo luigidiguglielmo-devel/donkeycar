@@ -252,13 +252,13 @@ class RCReceiver:
 
         # standard variables
         self.channels = [Channel(cfg.STEERING_RC_GPIO), Channel(cfg.THROTTLE_RC_GPIO), Channel(cfg.DATA_WIPER_RC_GPIO)]
-        self.min_pwm = 1000
-        self.max_pwm = 2000
+        self.min_pwm = cfg.PIGPIO_MAX_REVERSE
+        self.max_pwm = cfg.PIGPIO_MAX_FORWARD
         self.oldtime = 0
-        self.STEERING_MID = cfg.PIGPIO_STEERING_MID
-        self.MAX_FORWARD = cfg.PIGPIO_MAX_FORWARD
-        self.STOPPED_PWM = cfg.PIGPIO_STOPPED_PWM
-        self.MAX_REVERSE = cfg.PIGPIO_MAX_REVERSE
+        #self.STEERING_MID = cfg.PIGPIO_STEERING_MID
+        #self.MAX_FORWARD = cfg.PIGPIO_MAX_FORWARD
+        #self.STOPPED_PWM = cfg.PIGPIO_STOPPED_PWM
+        #self.MAX_REVERSE = cfg.PIGPIO_MAX_REVERSE
         self.RECORD = cfg.AUTO_RECORD_ON_THROTTLE
         self.debug = debug
         self.mode = 'user'
@@ -311,6 +311,8 @@ class RCReceiver:
         i = 0
         for channel in self.channels:
             # signal is a value in [0, (MAX_OUT-MIN_OUT)]
+            if self.debug:
+                logger.info(f'RC CH{i+1} signal:{self.pulse_width(channel.tick)}')
             self.signals[i] = (self.pulse_width(channel.tick) - self.min_pwm) * self.factor
             # convert into min max interval
             if self.invert:
@@ -318,8 +320,8 @@ class RCReceiver:
             else:
                 self.signals[i] += self.MIN_OUT
             i += 1
-        if self.debug:
-            logger.info(f'RC CH1 signal:{round(self.signals[0], 3)}, RC CH2 signal:{round(self.signals[1], 3)}, RC CH3 signal:{round(self.signals[2], 3)}')
+        #if self.debug:
+        #    logger.info(f'RC CH1 signal:{round(self.signals[0], 3)}, RC CH2 signal:{round(self.signals[1], 3)}, RC CH3 signal:{round(self.signals[2], 3)}')
 
         # check mode channel if present
         if (self.signals[2] - self.jitter) > 0:  
@@ -340,8 +342,8 @@ class RCReceiver:
         """
         Cancel all the callbacks on shutdown
         """
-        for channel in self.channels:
-            self.cbs[channel].cancel()
+        for cbs in self.cbs:
+            cbs.cancel()
 
 
 
