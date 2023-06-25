@@ -25,6 +25,7 @@ from kivy.core.image import Image as CoreImage
 from kivy.properties import NumericProperty, ObjectProperty, StringProperty, \
     ListProperty, BooleanProperty
 from kivy.uix.label import Label
+from kivy.uix.button import Button
 from kivy.uix.popup import Popup
 from kivy.lang.builder import Builder
 from kivy.core.window import Window
@@ -33,6 +34,7 @@ from kivy.uix.scrollview import ScrollView
 from kivy.uix.spinner import SpinnerOption, Spinner
 
 from donkeycar import load_config
+from donkeycar.parts.image_transformations import ImageTransformations
 from donkeycar.parts.tub_v2 import Tub
 from donkeycar.pipeline.augmentations import ImageAugmentation
 from donkeycar.pipeline.database import PilotDatabase
@@ -714,7 +716,7 @@ class PilotLoader(BoxLayout, FileChooserBase):
                 if 'tflite' in self.model_type:
                     self.filters = ['*.tflite']
                 elif 'tensorrt' in self.model_type:
-                    self.filters = ['*.trt']
+                    self.filters = ['*.trt', '*.savedmodel']
                 else:
                     self.filters = ['*.h5', '*.savedmodel']
 
@@ -739,6 +741,8 @@ class OverlayImage(FullImage):
             img_arr = pilot_screen().transformation.run(img_arr)
         if pilot_screen().aug_list:
             img_arr = pilot_screen().augmentation.run(img_arr)
+        if pilot_screen().post_trans_list:
+            img_arr = pilot_screen().post_transformation.run(img_arr)
         return img_arr
 
     def get_image(self, record):
@@ -778,6 +782,59 @@ class OverlayImage(FullImage):
         return img_arr
 
 
+class TransformationPopup(Popup):
+    """ Transformation popup window"""
+    title = StringProperty()
+    transformations = \
+        ["TRAPEZE", "CROP", "RGB2BGR", "BGR2RGB", "RGB2HSV", "HSV2RGB",
+         "BGR2HSV", "HSV2BGR", "RGB2GRAY", "RBGR2GRAY", "HSV2GRAY", "GRAY2RGB",
+         "GRAY2BGR", "CANNY", "BLUR", "RESIZE", "SCALE"]
+    transformations_obj = ObjectProperty()
+    selected = ListProperty()
+
+    def __init__(self, selected, **kwargs):
+        super().__init__(**kwargs)
+        for t in self.transformations:
+            btn = Button(text=t)
+            btn.bind(on_release=self.toggle_transformation)
+            self.ids.trafo_list.add_widget(btn)
+        self.selected = selected
+
+    def toggle_transformation(self, btn):
+        trafo = btn.text
+        if trafo in self.selected:
+            self.selected.remove(trafo)
+        else:
+            self.selected.append(trafo)
+
+    def on_selected(self, obj, select):
+        self.ids.selected_list.clear_widgets()
+        for l in self.selected:
+            lab = Label(text=l)
+            self.ids.selected_list.add_widget(lab)
+        self.transformations_obj.selected = self.selected
+
+
+class Transformations(Button):
+    """ Base class for transformation widgets"""
+    title = StringProperty(None)
+    pilot_screen = ObjectProperty()
+    is_post = False
+    selected = ListProperty()
+
+    def open_popup(self):
+        popup = TransformationPopup(title=self.title, transformations_obj=self,
+                                    selected=self.selected)
+        popup.open()
+
+    def on_selected(self, obj, select):
+        Logger.info(f"Selected {select}")
+        if self.is_post:
+            self.pilot_screen.post_trans_list = self.selected
+        else:
+            self.pilot_screen.trans_list = self.selected
+
+
 class PilotScreen(Screen):
     """ Screen to do the pilot vs pilot comparison ."""
     index = NumericProperty(None, force_dispatch=True)
@@ -787,6 +844,8 @@ class PilotScreen(Screen):
     augmentation = ObjectProperty()
     trans_list = ListProperty(force_dispatch=True)
     transformation = ObjectProperty()
+    post_trans_list = ListProperty(force_dispatch=True)
+    post_transformation = ObjectProperty()
     config = ObjectProperty()
 
     def on_index(self, obj, index):
@@ -829,13 +888,16 @@ class PilotScreen(Screen):
         if not self.config:
             return
         if self.ids.button_bright.state == 'down':
-            self.config.AUG_MULTIPLY_RANGE = (val, val)
-            if 'MULTIPLY' not in self.aug_list:
-                self.aug_list.append('MULTIPLY')
-        elif 'MULTIPLY' in self.aug_list:
-            self.aug_list.remove('MULTIPLY')
-        # update dependency
-        self.on_aug_list(None, None)
+            self.config.AUG_BRIGHTNESS_RANGE = (val, val)
+            if 'BRIGHTNESS' not in self.aug_list:
+                self.aug_list.append('BRIGHTNESS')
+            else:
+                # Since we only changed the content of the config here,
+                # self.on_aug_list() would not be called, but we want to update
+                # the augmentation. Hence, update the dependency manually here.
+                self.on_aug_list(None, None)
+        elif 'BRIGHTNESS' in self.aug_list:
+            self.aug_list.remove('BRIGHTNESS')
 
     def set_blur(self, val=None):
         if not self.config:
@@ -853,14 +915,24 @@ class PilotScreen(Screen):
         if not self.config:
             return
         self.config.AUGMENTATIONS = self.aug_list
-        self.augmentation = ImageAugmentation(self.config, 'AUGMENTATIONS')
+        self.augmentation = ImageAugmentation(
+            self.config, 'AUGMENTATIONS', always_apply=True)
         self.on_current_record(None, self.current_record)
 
     def on_trans_list(self, obj, trans_list):
         if not self.config:
             return
         self.config.TRANSFORMATIONS = self.trans_list
-        self.transformation = ImageAugmentation(self.config, 'TRANSFORMATIONS')
+        self.transformation = ImageTransformations(
+            self.config, 'TRANSFORMATIONS')
+        self.on_current_record(None, self.current_record)
+
+    def on_post_trans_list(self, obj, trans_list):
+        if not self.config:
+            return
+        self.config.POST_TRANSFORMATIONS = self.post_trans_list
+        self.post_transformation = ImageTransformations(
+            self.config, 'POST_TRANSFORMATIONS')
         self.on_current_record(None, self.current_record)
 
     def set_mask(self, state):
@@ -899,7 +971,7 @@ class DataFrameLabel(Label):
 
 class TransferSelector(BoxLayout, FileChooserBase):
     """ Class to select transfer model"""
-    filters = ['*.h5']
+    filters = ['*.h5', '*.savedmodel']
 
 
 class TrainScreen(Screen):
@@ -908,13 +980,24 @@ class TrainScreen(Screen):
     database = ObjectProperty()
     pilot_df = ObjectProperty(force_dispatch=True)
     tub_df = ObjectProperty(force_dispatch=True)
+    train_checker = False
 
-    def train_call(self, model_type, *args):
-        # remove car directory from path
+    def train_call(self, *args):
         tub_path = tub_screen().ids.tub_loader.tub.base_path
         transfer = self.ids.transfer_spinner.text
+        model_type = self.ids.train_spinner.text
         if transfer != 'Choose transfer model':
-            transfer = os.path.join(self.config.MODELS_PATH, transfer + '.h5')
+            h5 = os.path.join(self.config.MODELS_PATH, transfer + '.h5')
+            sm = os.path.join(self.config.MODELS_PATH, transfer + '.savedmodel')
+            if os.path.exists(sm):
+                transfer = sm
+            elif os.path.exists(h5):
+                transfer = h5
+            else:
+                transfer = None
+                self.ids.status.text = \
+                    f'Could find neither {sm} nor {trans_h5} - training ' \
+                    f'without transfer'
         else:
             transfer = None
         try:
@@ -922,20 +1005,32 @@ class TrainScreen(Screen):
                             model_type=model_type,
                             transfer=transfer,
                             comment=self.ids.comment.text)
-            self.ids.status.text = f'Training completed.'
-            self.ids.comment.text = 'Comment'
-            self.ids.transfer_spinner.text = 'Choose transfer model'
-            self.reload_database()
         except Exception as e:
             Logger.error(e)
             self.ids.status.text = f'Train failed see console'
-        finally:
-            self.ids.train_button.state = 'normal'
 
-    def train(self, model_type):
+    def train(self):
         self.config.SHOW_PLOT = False
-        Thread(target=self.train_call, args=(model_type,)).start()
-        self.ids.status.text = f'Training started.'
+        t = Thread(target=self.train_call)
+        self.ids.status.text = 'Training started.'
+
+        def func(dt):
+            t.start()
+
+        def check_training_done(dt):
+            if not t.is_alive():
+                self.train_checker.cancel()
+                self.ids.comment.text = 'Comment'
+                self.ids.transfer_spinner.text = 'Choose transfer model'
+                self.ids.train_button.state = 'normal'
+                self.ids.status.text = 'Training completed.'
+                self.ids.train_button.disabled = False
+                self.reload_database()
+
+        # schedules the call after the current frame
+        Clock.schedule_once(func, 0)
+        # checks if training finished and updates the window if
+        self.train_checker = Clock.schedule_interval(check_training_done, 0.5)
 
     def set_config_attribute(self, input):
         try:
@@ -1125,19 +1220,20 @@ class CarScreen(Screen):
             self.is_connected = False
             if return_val is None:
                 # command still running, do nothing and check next time again
-                status = 'Awaiting connection...'
+                status = 'Awaiting connection to...'
                 self.ids.connected.color = 0.8, 0.8, 0.0, 1
             else:
                 # command finished, check if successful and reset connection
                 if return_val == 0:
-                    status = 'Connected'
+                    status = 'Connected to'
                     self.ids.connected.color = 0, 0.9, 0, 1
                     self.is_connected = True
                 else:
-                    status = 'Disconnected'
+                    status = 'Disconnected from'
                     self.ids.connected.color = 0.9, 0, 0, 1
                 self.connection = None
-            self.ids.connected.text = status
+            self.ids.connected.text \
+                = f'{status} {getattr(self.config, "PI_HOSTNAME")}'
 
     def drive(self):
         model_args = ''

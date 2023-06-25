@@ -84,7 +84,8 @@ class MakeMovie(object):
     def draw_line_into_image(angle, throttle, is_left, img, color):
         import cv2
 
-        height, width, _ = img.shape
+        height = img.shape[0]
+        width = img.shape[1]
         length = height
         a1 = angle * 45.0
         l1 = throttle * length
@@ -103,7 +104,8 @@ class MakeMovie(object):
         user_angle = float(record["user/angle"])
         user_throttle = float(record["user/throttle"])
         green = (0, 255, 0)
-        self.draw_line_into_image(user_angle, user_throttle, False, img_drawon, green)
+        self.draw_line_into_image(user_angle, user_throttle, False,
+                                  img_drawon, green)
 
     def draw_model_prediction(self, img, img_drawon):
         """
@@ -113,7 +115,7 @@ class MakeMovie(object):
         if self.keras_part is None:
             return
 
-        expected = tuple(self.keras_part.get_input_shapes()[0][1:])
+        expected = tuple(self.keras_part.get_input_shape('img_in')[1:])
         actual = img.shape
 
         # if model expects grey-scale but got rgb, covert

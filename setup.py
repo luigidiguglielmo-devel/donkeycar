@@ -24,7 +24,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setup(name='donkeycar',
-      version="4.4.3-main",
+      version="5.0.dev1",
       long_description=long_description,
       description='Self driving library for python.',
       url='https://github.com/autorope/donkeycar',
@@ -53,32 +53,47 @@ setup(name='donkeycar',
           "pynmea2",
           'pyserial',
           "utm",
+          'pandas'
       ],
       extras_require={
+          # if installing into a conda (i.e. miniforge) env on Pi we have to
+          # run 'sudo apt-get install libcap-dev' first.
           'pi': [
-              'picamera',
+              'picamera2',
               'Adafruit_PCA9685',
-              'adafruit-circuitpython-lis3dh',
               'adafruit-circuitpython-ssd1306',
               'adafruit-circuitpython-rplidar',
               'RPi.GPIO',
-              'imgaug'
+              'tensorflow @ https://github.com/PINTO0309/Tensorflow-bin/releases/download/v2.9.0/tensorflow-2.9.0-cp39-none-linux_aarch64.whl'
           ],
-          'nano': [
+          'nano45': [
               'Adafruit_PCA9685',
-              'adafruit-circuitpython-lis3dh',
               'adafruit-circuitpython-ssd1306',
               'adafruit-circuitpython-rplidar',
               'Jetson.GPIO',
+              'albumentations',
+              'matplotlib',
+              'kivy-jetson',
+              'pyyaml',
+              'plotly'
+          ],
+          'nano': [
+              'Adafruit_PCA9685',
+              'adafruit-circuitpython-ssd1306',
+              'adafruit-circuitpython-rplidar',
+              'Jetson.GPIO',
+              'matplotlib',
+              'kivy',
+              'pyyaml',
+              'plotly'
           ],
           'pc': [
               'matplotlib',
               'kivy',
-              'protobuf==3.20.3',
               'pandas',
               'pyyaml',
               'plotly',
-              'imgaug'
+              'albumentations'
           ],
           'dev': [
               'pytest',
@@ -87,7 +102,7 @@ setup(name='donkeycar',
               'mypy'
           ],
           'ci': ['codecov'],
-          'tf': ['tensorflow==2.2.0'],
+          'tf': ['tensorflow==2.9'],
           'torch': [
               'pytorch',
               'torchvision==0.12',
@@ -118,4 +133,4 @@ setup(name='donkeycar',
       ],
       keywords='selfdriving cars donkeycar diyrobocars',
       packages=find_packages(exclude=(['tests', 'docs', 'site', 'env'])),
-    )
+      )
