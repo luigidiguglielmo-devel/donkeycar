@@ -1,0 +1,51 @@
+name: donkey_cuda
+
+channels:
+  - defaults
+  - conda-forge
+  - pytorch
+  - nvidia
+  - fastai
+
+dependencies:
+  - conda-forge::ncurses=6.4=hcb278e6_0
+  - python=3.9
+  - numpy
+  - h5py
+  - pillow
+  - opencv
+  - matplotlib
+  - tornado
+  - docopt
+  - pandas
+  - pylint
+  - pytest
+  - pytest-cov
+  - codecov
+  - pip
+  - progress
+  - paho-mqtt
+  - PrettyTable
+  - pyfiglet
+  - mypy
+  - pytorch::pytorch>=1.3,<2.0
+  - pytorch::torchvision
+  - pytorch::torchaudio
+  - pytorch::pytorch-cuda=11.8
+  - pytorch-lightning>=1.9,<2.0
+  - conda-forge::cudatoolkit=11.8.0
+  - psutil
+  - plotly
+  - pyyaml
+  - fastai
+  - pynmea2
+  - pyserial
+  - utm
+  - albumentations
+  - pip:
+    - git+https://github.com/autorope/keras-vis.git
+    - simple-pid
+    - kivy==2.1
+    - moviepy
+    - nvidia-cudnn-cu11==8.6.0.163
+    - tensorflow==2.13.*
